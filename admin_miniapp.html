@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>SecurityBot Nexus — Admin</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#0b0f14;color:#f4f6f8;padding:16px}h1{font-size:22px;margin:0 0 16px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.card{background:#151b23;border:1px solid #27303b;border-radius:16px;padding:14px}.num{font-size:25px;font-weight:700;margin-top:6px}.label{color:#9da8b5;font-size:13px}.wide{grid-column:1/-1}.row{display:flex;justify-content:space-between;align-items:center;gap:10px}.btn{border:0;border-radius:12px;padding:11px 14px;background:#2aabee;color:white;font-weight:700}.danger{background:#d84b4b}.muted{color:#9da8b5;font-size:13px}.user{padding:11px 0;border-bottom:1px solid #27303b}.user:last-child{border-bottom:0}.tag{font-size:11px;padding:3px 7px;border-radius:8px;background:#263242}.premium{background:#6246a8}.blocked{background:#8e3434}.refresh{margin:12px 0;width:100%}@media(min-width:700px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+</style>
+</head>
+<body>
+<h1>🛡 SecurityBot Nexus</h1>
+<div class="grid" id="stats"></div>
+<div class="card wide" style="margin-top:10px"><div class="row"><b>🚨 Технический режим</b><button class="btn" id="maint">...</button></div><div class="muted" style="margin-top:7px">Включение блокирует обычным пользователям доступ к боту.</div></div>
+<button class="btn refresh" onclick="loadAll()">🔄 Обновить</button>
+<div class="card wide"><div class="row"><b>👥 Пользователи</b><span class="muted">последние 100</span></div><div id="users" style="margin-top:8px">Загрузка...</div></div>
+<script>
+const tg=window.Telegram?.WebApp; tg?.ready(); tg?.expand();
+const headers={'X-Telegram-Init-Data':tg?.initData||''};
+async function api(path,opts={}){const r=await fetch(path,{...opts,headers:{...headers,'Content-Type':'application/json',...(opts.headers||{})}});const d=await r.json();if(!r.ok)throw new Error(d.error||'Ошибка');return d}
+function card(label,val){return `<div class="card"><div class="label">${label}</div><div class="num">${val}</div></div>`}
+async function loadStats(){const d=await api('/api/stats');document.getElementById('stats').innerHTML=card('👥 Пользователи',d.users)+card('⭐ Premium',d.premium)+card('🔗 Проверки ссылок',d.scans)+card('📁 Проверки файлов',d.files)+card('🚫 Заблокировано',d.blocked)+card('🆕 Новые за день',d.new_day)+card('📅 Новые за неделю',d.new_week)+card('🗓 Новые за месяц',d.new_month);const b=document.getElementById('maint');b.textContent=d.maintenance?'Выключить':'Включить';b.className='btn '+(d.maintenance?'danger':'');b.onclick=async()=>{await api('/api/maintenance',{method:'POST',body:JSON.stringify({enabled:!d.maintenance})});loadStats()}}
+async function loadUsers(){const d=await api('/api/users');document.getElementById('users').innerHTML=d.users.map(u=>`<div class="user"><div class="row"><div><b>${esc(u.name||'Без имени')}</b> ${u.username?'<span class="muted">@'+esc(u.username)+'</span>':''}<div class="muted">ID: ${u.id}</div></div><div>${u.premium!=='free'?'<span class="tag premium">⭐ '+esc(u.premium)+'</span>':''} ${u.blocked?'<span class="tag blocked">🚫</span>':''}</div></div><button class="btn ${u.blocked?'':'danger'}" style="margin-top:7px" onclick="toggleBlock(${u.id})">${u.blocked?'Разблокировать':'Заблокировать'}</button></div>`).join('')||'<div class="muted">Пользователей нет</div>'}
+function esc(s){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
+async function toggleBlock(id){try{await api('/api/block',{method:'POST',body:JSON.stringify({user_id:id})});loadUsers();loadStats()}catch(e){alert(e.message)}}
+async function loadAll(){try{await Promise.all([loadStats(),loadUsers()])}catch(e){document.body.innerHTML='<h2>⛔ Нет доступа</h2><p>Открой Mini App через кнопку админ-панели бота.</p>'}}
+loadAll();
+</script>
+</body></html>
